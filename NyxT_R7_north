@@ -1,0 +1,69 @@
+//This code runs the Nyx Tracker Rev7, Ctrl Board Rev7.04
+//Created by Mark Egan at Nyx Tech [mark@nyxtech.us] 2024-8-24 
+//Feel free to mix, hack, share! 
+
+#include <AccelStepper.h>
+#define HALFSTEP 8
+
+#define motorPin1  2       // IN1 on ULN2003 ==> Blue on 28BYJ-48
+#define motorPin2  3       // IN2 on ULN2003 ==> Pink on 28BYJ-48
+#define motorPin3  4       // IN3 on ULN2003 ==> Yellow on 28BYJ-48
+#define motorPin4  5       // IN4 on ULN2003 ==> Orange on 28BYJ-48
+#define buttonPin  10      // Digital pin 10 reads home button press
+
+// 1-3-2-4 is required for proper sequencing of 28BYJ-48
+AccelStepper stepper1(HALFSTEP, motorPin1, motorPin3, motorPin2, motorPin4);
+
+// Variables to store the current and last button states
+int buttonState;
+int lastButtonState = HIGH;  // Initial state is HIGH due to pull-up resistor
+int currentState = 1;
+
+// Variables for debouncing
+unsigned long lastDebounceTime = 0;
+const unsigned long debounceDelay = 50;  // 50 ms debounce delay
+
+void setup() 
+{
+  pinMode(buttonPin, INPUT);  // Set the home button pin as input
+
+  stepper1.setMaxSpeed(800); //steps per second
+  stepper1.setAcceleration(500); //steps per second per second
+}
+
+void loop() 
+{
+        if (currentState == 1) {
+          stepper1.setSpeed(-4096/60*1.0018); //4096 steps per revolution for 28BYJ motor; 1.0018 rpm for sidereal star tracking for the Nyx Tracker gear ratio  
+          stepper1.runSpeed();
+        } else {
+          stepper1.setSpeed(800); //max speed for homing
+          stepper1.runSpeed();
+        }
+
+  int reading = digitalRead(buttonPin);  // Read the state of the button
+    
+  if (reading != lastButtonState) {  // Check if the button state has changed
+    lastDebounceTime = millis();     // Reset the debouncing timer
+  }
+  
+  // Check if enough time has passed to consider the reading stable
+  if ((millis() - lastDebounceTime) > debounceDelay) 
+  {
+    // If the button state has changed and is LOW, toggle the current state
+    if (reading != buttonState) {
+      buttonState = reading;
+      
+      if (buttonState == LOW) {
+        // Toggle between state 1 and state 2
+        currentState = (currentState == 1) ? 2 : 1;
+
+        }
+      }
+  }
+
+  lastButtonState = reading;  // Save the reading for the next loop iteration
+  delay(1);  // Small delay to avoid excessive CPU usage
+}
+
+
